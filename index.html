@@ -1,0 +1,155 @@
+<!--
+*** Author: Sen Lin, Rujuta Apte
+*** Class: Information Visualization
+*** The following code is to build a visualization given the data file Olympics.csv
+*** Each country's statistics is vividly presented by bubble and piechart in D3 library
+-->
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<body>
+    <div id="textDes"> </div>
+    <div id="chart"></div>
+</body>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script>
+    //Select textDec id and create headers 
+    var textDes = d3.select("#textDes");
+    textDes.append('h1').text("Olympics Medal Statistics").style('color', "#FF7F50").attr('align', 'center');
+    textDes.append('h2').text("Countries with no medals").style('color', "#D2B48C").attr('align', 'left');
+    //
+    var color = ["#CFB53B", "#E6E8FA", "#8C7853"];
+    var metalType = ["Gold", "Silver", "Bronze"];
+    var indicatorRadius = 30;
+    var padding = 100;
+    var diameter = 1000;
+    var format = d3.format(",d");
+
+    //Use pack layout to put each bubble on a svg container
+    //Each bubble represents a country
+    //The size of the bubble correspond to total medals
+    //every bubble is sorted by desceding order
+    var pack = d3.layout.pack()
+        .sort(function(a, b) {
+            return d3.descending(a.value, b.value);
+        })
+        .size([diameter, diameter])
+        .padding(1)
+        .value(function(d) {
+            return Math.max(1, d.TotalMedals)
+        });
+    //Use pie layout to put arcs on each bubble
+    var arc = d3.svg.arc().innerRadius(0);
+    var pie = d3.layout.pie();
+    var svg = d3.select("#chart")
+        .append("svg")
+        .attr("height", diameter)
+        .attr("width", diameter)
+        .style('background', "#E8DE54")
+        .style('display', "inline");
+    //The panel is used to expalin what each color represents on each pie chart
+    var panel = d3.select("#chart")
+        .append("svg")
+        .attr("height", diameter)
+        .attr("width", 285)
+        .style('background', "#E8DE54")
+        .style('display', "inline");
+    // a for loop to draw small colored circle on the panel
+    for (var j = 3; j < 6; j++) {
+        var typeIndicator = panel.append("g").attr("class", "typeIndicator")
+        typeIndicator.append('circle')
+            .attr("r", indicatorRadius)
+            .style('fill', color[j - 3])
+            .attr("transform", "translate(" + padding + "," + padding * j + ")");
+
+        typeIndicator.append("text")
+            .style("text-anchor", "middle")
+            .attr("transform", "translate(" + padding + "," + padding * j + ")")
+            .text(metalType[j - 3]);
+    }
+    //Add text to the panel
+    panel.append("text").text('Metal Type:')
+        .style('fill', "#999999")
+        .style('stroke', "#000000")
+        .style("font-size", "px")
+        .attr("transform", "translate(" + 0 + "," + padding * 2 + ")")
+        //read Olympics.csv file asynchronously and build pie charts on each bubble
+    d3.csv("Olympics.csv", function(csv) {
+        var noMedelCountries = [];
+        csv.forEach(function(d) {
+                if (d.TotalMedals == 0) {
+                    noMedelCountries.push(d.Country);
+                }
+            })
+            //display the list for countries in which didn't win any medals
+        textDes.append('p').text(noMedelCountries.toString()).style('color', "#EBA29A").style('word-break', 'break-all').style('background', '#E8DE54');
+        //display countries with medals
+        textDes.append('h2').text("Countries with medals").style('color', "#D2B48C").attr('align', 'left');
+        var data = {
+            name: "Olympics",
+            children: csv
+        };
+        //create bubbles
+        var node = svg.selectAll(".node")
+            .data(pack.nodes(data)
+                .filter(function(d) {
+                    return d.TotalMedals > 0;
+                })) //only countries with medals
+            .enter().append("g")
+            .attr("class", "node")
+            .attr("transform", function(d) {
+                return "translate(" + d.x + "," + d.y + ")";
+            })
+            //create pie charts by drawing arcs and paths
+        var arcG = node.selectAll(".arc")
+            .data(function(d) {
+                var metalArray = [d.GoldMedals, d.Silver, d.Bronze];
+                return pie(metalArray).map(function(m) {
+                    m.r = d.r;
+                    return m;
+                }).filter(function(m) {
+                    return m.data > 0;
+                });
+            })
+            .enter().append("g").attr("class", "arc");
+
+        arcG.append("path")
+            .attr("d", function(d) {
+                arc.outerRadius(d.r);
+                return arc(d);
+            })
+            .style("fill", function(d, i) {
+                return color[i];
+            });
+        //Display the number for each types of medals
+        arcG.append("text")
+            .attr({
+                x: function(d) {
+                    arc.outerRadius(d.r);
+                    return arc.centroid(d)[0];
+                },
+                y: function(d) {
+                    arc.outerRadius(d.r);
+                    return arc.centroid(d)[1];
+                },
+            })
+            .style("text-anchor", "middle")
+            .text(function(d) {
+                return d.value;
+            });
+        //displays countries name on each bubble
+        node.selectAll("text.label")
+            .data(function(d) {
+                return [d.Country];
+            })
+            .enter().append("text")
+            .attr({
+                "class": "label",
+                dy: "0.35em"
+            })
+            .style("text-anchor", "middle")
+            .text(String);
+    })//end of csv reading
+</script>
+
+</html>
